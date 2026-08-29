@@ -4,7 +4,7 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-HF_TOKEN = os.getenv("HF_TOKEN")
+HF_TOKEN = os.getenv("HF_API_TOKEN")
 HF_URL = "https://router.huggingface.co/v1/chat/completions"
 MODEL = "openai/gpt-oss-120b:fastest"
 

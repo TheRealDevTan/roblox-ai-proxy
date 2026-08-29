@@ -4,13 +4,13 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-API_URL = "https://router.huggingface.co/v1/chat/completions"
-API_TOKEN = os.getenv("HF_TOKEN") or os.getenv("HF_API_TOKEN")
+HF_TOKEN = os.getenv("HF_TOKEN")
+HF_URL = "https://router.huggingface.co/v1/chat/completions"
 MODEL = "openai/gpt-oss-120b:fastest"
 
 
 @app.route("/chat", methods=["POST"])
-def chat_proxy():
+def chat():
     try:
         data = request.get_json(silent=True) or {}
 
@@ -18,19 +18,29 @@ def chat_proxy():
         history = data.get("history") or []
         user_message = data.get("message", "")
 
+        if not HF_TOKEN:
+            return jsonify({
+                "reply": "[ERROR] HF_TOKEN is missing in Render."
+            }), 500
+
         messages = []
 
         if system_prompt:
             messages.append({
                 "role": "system",
-                "content": system_prompt
+                "content": str(system_prompt)
             })
 
         for item in history:
             if isinstance(item, dict):
                 messages.append({
                     "role": item.get("role", "user"),
-                    "content": str(item.get("content", ""))
+                    "content": str(
+                        item.get("content")
+                        or item.get("message")
+                        or item.get("text")
+                        or ""
+                    )
                 })
             else:
                 messages.append({
@@ -40,18 +50,13 @@ def chat_proxy():
 
         messages.append({
             "role": "user",
-            "content": user_message
+            "content": str(user_message)
         })
 
-        if not API_TOKEN:
-            return jsonify({
-                "reply": "[PROXY ERROR] HF_TOKEN is missing on Render."
-            }), 500
-
         response = requests.post(
-            API_URL,
+            HF_URL,
             headers={
-                "Authorization": f"Bearer {API_TOKEN}",
+                "Authorization": f"Bearer {HF_TOKEN}",
                 "Content-Type": "application/json"
             },
             json={
@@ -61,11 +66,13 @@ def chat_proxy():
                 "temperature": 0.7,
                 "stream": False
             },
-            timeout=30
+            timeout=60
         )
 
         if response.status_code != 200:
-            print("[HF ERROR]", response.status_code, response.text[:500])
+            print("[HUGGING FACE ERROR]", response.status_code)
+            print(response.text[:500])
+
             return jsonify({
                 "reply": f"[HF ERROR {response.status_code}] {response.text[:300]}"
             }), 200
@@ -73,17 +80,18 @@ def chat_proxy():
         result = response.json()
         reply = result["choices"][0]["message"]["content"]
 
-        return jsonify({"reply": reply}), 200
-
-    except Exception as e:
-        print("[PROXY CRASH]", repr(e))
         return jsonify({
-            "reply": "[PROXY CRASH] Core routing failed."
+            "reply": reply
+        }), 200
+
+    except Exception as error:
+        print("[PROXY CRASH]", repr(error))
+
+        return jsonify({
+            "reply": "[PROXY CRASH] The Python proxy failed."
         }), 500
 
 
 if __name__ == "__main__":
-    app.run(
-        host="0.0.0.0",
-        port=int(os.getenv("PORT", 5000))
-    )
+    port = int(os.getenv("PORT", "5000"))
+    app.run(host="0.0.0.0", port=port)

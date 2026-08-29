@@ -28,9 +28,14 @@ def chat_proxy():
         # Build network payload to fire out to Hugging Face
         headers = {
             "Authorization": f"Bearer {API_TOKEN}" if API_TOKEN else "",
-            # FIX: Adding a standard User-Agent headers string prevents the 403 block
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
+        
+        # DOUBLE-CHECK FIX: If the token is missing from the server environment, force a temporary backup format
+        if not API_TOKEN or API_TOKEN == "":
+            # If Render hasn't synced the environment variables yet, this prevents anonymous 403s
+            headers["Authorization"] = "Bearer hf_your_actual_token_pasted_here_directly"
+
         payload = {
             "inputs": formatted_prompt,
             "parameters": {"max_new_tokens": 120, "temperature": 0.7}

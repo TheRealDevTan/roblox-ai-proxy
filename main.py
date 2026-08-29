@@ -26,7 +26,11 @@ def chat_proxy():
         formatted_prompt += f"<|user|>\n{new_user_message}\n<|assistant|>\n"
         
         # Build network payload to fire out to Hugging Face
-        headers = {"Authorization": f"Bearer {API_TOKEN}"} if API_TOKEN else {}
+        headers = {
+            "Authorization": f"Bearer {API_TOKEN}" if API_TOKEN else "",
+            # FIX: Adding a standard User-Agent headers string prevents the 403 block
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
         payload = {
             "inputs": formatted_prompt,
             "parameters": {"max_new_tokens": 120, "temperature": 0.7}
